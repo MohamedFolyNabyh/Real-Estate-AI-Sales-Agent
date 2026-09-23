@@ -565,13 +565,13 @@ langgraph-agent-project/
 ## 1. Clone the repository
 
 ```bash
-git clone YOUR_GITHUB_REPOSITORY_URL
+git clone github.com/MohamedFolyNabyh/Real-Estate-AI-Sales-Agent.git
 ```
 
 Move into the project:
 
 ```bash
-cd langgraph-agent-project
+cd Real-Estate-AI-Sales-Agent
 ```
 
 ---
