@@ -1,0 +1,11 @@
+argon2==0.1.10
+fastapi==0.141.1
+langchain_core==1.6.4
+langchain_google_genai==4.4.0
+langgraph==1.2.12
+pydantic==2.13.5
+python-dotenv==1.2.3
+python_jose==3.5.0
+Requests==2.34.2
+SQLAlchemy==2.0.54
+streamlit==1.64.0
