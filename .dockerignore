@@ -1,0 +1,17 @@
+.env
+.git
+.gitignore
+
+__pycache__/
+*.pyc
+
+.venv/
+venv/
+env/
+
+.streamlit/secrets.toml
+
+.vscode/
+.idea/
+
+*.log

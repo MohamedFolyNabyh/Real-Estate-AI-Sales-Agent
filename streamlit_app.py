@@ -6,8 +6,12 @@ import streamlit as st
 # Configuration
 # =========================================================
 
-API_URL = "http://127.0.0.1:8000"
+import os
 
+API_URL = os.getenv(
+    "API_URL",
+    "http://127.0.0.1:8000"
+)
 # =========================================================
 # Page Configuration
 # =========================================================
@@ -43,7 +47,7 @@ st.markdown(
         color: #ffffff !important;
     }
 
-    /* Main Content Text */
+    /* Typography */
     .main-title {
         font-size: 32px;
         font-weight: 700;
@@ -58,9 +62,7 @@ st.markdown(
     }
 
     /* Cards Styling */
-    .metric-card,
-    .property-card,
-    .lead-card {
+    .metric-card, .property-card, .lead-card {
         background-color: #ffffff !important;
         padding: 20px;
         border-radius: 12px;
@@ -82,12 +84,12 @@ st.markdown(
         margin-top: 4px;
     }
 
-    /* Inputs and text */
+    /* General Inputs & Text Controls */
     p, span, label {
         color: #0f172a;
     }
 
-    /* Chat text */
+    /* Chat Text Box Adjustments */
     [data-testid="stChatMessage"] p,
     [data-testid="stChatMessage"] span,
     [data-testid="stChatMessage"] div {
@@ -146,7 +148,28 @@ def api_patch(endpoint, data):
         return None
 
 # =========================================================
-# Authentication
+# Streaming Chat Helper
+# =========================================================
+
+def stream_chat(message):
+    try:
+        response = requests.post(
+            f"{API_URL}/chat/",
+            json={"message": message},
+            headers=get_headers(),
+            stream=True,
+        )
+        response.raise_for_status()
+
+        for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
+            if chunk:
+                yield chunk
+
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError("Failed to connect to AI Agent.") from e
+
+# =========================================================
+# Authentication Pages
 # =========================================================
 
 def login():
@@ -180,6 +203,7 @@ def login():
                 st.rerun()
             else:
                 st.error("Login failed. Check your credentials.")
+
         except requests.exceptions.ConnectionError:
             st.error("Cannot connect to FastAPI backend.")
 
@@ -206,6 +230,7 @@ def register():
                 st.success("Account created! Switch to Login tab.")
             else:
                 st.error("Registration failed.")
+
         except requests.exceptions.ConnectionError:
             st.error("Cannot connect to backend.")
 
@@ -223,7 +248,6 @@ def logout():
 
 def dashboard():
     st.markdown('<div class="main-title">Dashboard</div>', unsafe_allow_html=True)
-
     name = st.session_state.user.get("name", "User") if st.session_state.user else "User"
     st.markdown(f'<div class="subtitle">Welcome back, {name} 👋</div>', unsafe_allow_html=True)
 
@@ -267,11 +291,9 @@ def properties_page():
                 st.markdown(f"### 📍 {prop.get('location', 'N/A')}")
                 st.write(f"🛏 Bedrooms: {prop.get('bedrooms', 'N/A')}")
                 st.write(f"📐 Area: {prop.get('area', 'N/A')} m²")
-
             with col2:
                 st.write(f"💳 Payment Plan: {prop.get('payment_plan', 'N/A')}")
                 st.write(f"📌 Status: {prop.get('status', 'N/A')}")
-
             with col3:
                 price = prop.get("price", 0)
                 st.metric("Price", f"${price:,.0f}")
@@ -290,39 +312,33 @@ def leads_page():
         response = api_get("/leads/")
         if response and response.status_code == 200:
             leads = response.json()
-
             if not leads:
                 st.info("No leads available.")
 
             for lead in leads:
                 with st.container(border=True):
                     col1, col2, col3 = st.columns([2, 2, 1])
-
                     with col1:
                         st.markdown(f"### 👤 {lead.get('name', 'N/A')}")
                         st.markdown(f"**📞 Phone:** `{lead.get('phone', 'N/A')}`")
-
                     with col2:
                         st.markdown(f"**🏠 Property ID:** {lead.get('property_id', 'N/A')}")
                         st.markdown(f"**Status:** `{lead.get('status', 'NEW')}`")
-
                     with col3:
-                        statuses = ["NEW", "CONTACTED", "INTERESTED", "CLOSED"]
-                        curr_status = lead.get("status", "NEW")
+                        statuses = ["new", "contacted", "interested", "qualified", "converted", "lost"]
+                        curr_status = lead.get("status", "new").lower()
                         idx = statuses.index(curr_status) if curr_status in statuses else 0
 
                         new_status = st.selectbox(
                             "Update Status",
                             statuses,
                             index=idx,
-                            key=f"lead_status_{lead['id']}"
+                            format_func=lambda x: x.upper(),
+                            key=f"lead_status_{lead['id']}",
                         )
 
                         if st.button("Update", key=f"update_lead_{lead['id']}"):
-                            res = api_patch(
-                                f"/leads/{lead['id']}/status",
-                                {"status": new_status}
-                            )
+                            res = api_patch(f"/leads/{lead['id']}/status", {"status": new_status})
                             if res and res.status_code == 200:
                                 st.success("Updated!")
                                 st.rerun()
@@ -338,15 +354,7 @@ def leads_page():
         prop_id = st.number_input("Property ID", min_value=1, step=1, key="c_lead_pid")
 
         if st.button("Create Lead", use_container_width=True):
-            res = api_post(
-                "/leads/",
-                {
-                    "name": name,
-                    "phone": phone,
-                    "property_id": int(prop_id)
-                }
-            )
-
+            res = api_post("/leads/", {"name": name, "phone": phone, "property_id": int(prop_id)})
             if res and res.status_code in [200, 201]:
                 st.success("Lead Created!")
                 st.rerun()
@@ -384,38 +392,35 @@ def followups_page():
 # =========================================================
 
 def chat_page():
-    st.markdown('<div class="main-title">🤖 AI Sales Agent</div>', unsafe_allow_html=True)
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        st.markdown('<div class="main-title">🤖 AI Sales Agent</div>', unsafe_allow_html=True)
+    with col2:
+        if st.button("🗑️ Clear Chat", key="clear_chat_btn"):
+            st.session_state.chat_messages = []
+            st.rerun()
 
-    # Render previous messages
+    # Render Previous Messages
     for message in st.session_state.chat_messages:
         with st.chat_message(message["role"]):
             st.write(message["content"])
 
-    # User input
+    # User Input
     user_message = st.chat_input("Ask something about properties...")
 
     if user_message:
+        # Save & Display User Message
         st.session_state.chat_messages.append({"role": "user", "content": user_message})
         with st.chat_message("user"):
             st.write(user_message)
 
-        with st.spinner("AI Agent is thinking..."):
-            response = api_post("/chat/", {"message": user_message})
-
-            if response and response.status_code == 200:
-                data = response.json()
-                answer = (
-                    data.get("message")
-                    or data.get("response")
-                    or data.get("reply")
-                    or data.get("content")
-                    or str(data)
-                )
-
+        # Stream & Save AI Response
+        with st.chat_message("assistant"):
+            try:
+                answer = st.write_stream(stream_chat(user_message))
                 st.session_state.chat_messages.append({"role": "assistant", "content": answer})
-                st.rerun()
-            else:
-                st.error("Failed to fetch response from Agent.")
+            except RuntimeError as e:
+                st.error(str(e))
 
 # =========================================================
 # Sidebar & Navigation

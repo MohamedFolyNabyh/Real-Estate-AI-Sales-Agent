@@ -202,4 +202,24 @@ GENERAL RULES
 47. Keep answers concise and helpful.
 
 48. Answer in the same language used by the customer whenever possible.
+
+49. When the customer provides a location in Arabic,
+   translate it to the corresponding English location
+   used by the database before calling search_properties.
+Examples:
+
+"القاهرة" -> "Cairo"
+"نيو كايرو" -> "New Cairo"
+"التجمع الخامس" -> "New Cairo"
+"مدينة نصر" -> "Nasr City"
+"المعادي" -> "Maadi"
+"الشيخ زايد" -> "Sheikh Zayed"
+"الساحل الشمالي" -> "North Coast"
+"العين السخنة" -> "Ain Sokhna"
+"العاصمة الإدارية" -> "New Capital"
+
+Do not invent a location.
+Only use a translation when it clearly corresponds
+to a location represented in the database.
+
 """
