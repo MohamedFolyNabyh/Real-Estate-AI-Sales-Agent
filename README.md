@@ -1,22 +1,24 @@
 # 🏠 Real Estate AI Sales Agent
 
-An AI-powered real estate sales assistant built with **FastAPI, PostgreSQL, LangGraph, JWT Authentication, SQLAlchemy, Alembic, and Streamlit**.
+An AI-powered real estate sales assistant built with **FastAPI, PostgreSQL, LangGraph, JWT Authentication, SQLAlchemy, Alembic, Streamlit, and Docker**.
 
-The system helps real estate sales agents search for available properties, collect customer leads, schedule follow-ups, and modify existing appointments through a conversational AI agent.
+The system helps real estate sales agents search for available properties, retrieve property details, create customer leads, schedule follow-ups, and update existing appointments through a conversational AI agent.
+
+The project combines a real backend with an AI agent that can turn natural-language requests into real actions through tool calling.
 
 ---
 
-## 🚀 Project Overview
+# 🚀 Project Overview
 
-The goal of this project is to build a practical AI sales agent for a real estate company.
+The goal of this project is to build a practical **AI Sales Agent for real estate companies**.
 
-Instead of forcing the sales agent to manually search through properties and enter customer information, the AI agent can understand natural language requests and interact with the backend through tools.
+Instead of forcing a sales agent to manually search through properties and enter customer information, the AI agent understands natural language and interacts with the backend through structured tools.
 
 For example:
 
 > "I need a 3 bedroom apartment in Cairo under 5 million."
 
-The AI agent can understand the request and call the property search tool with:
+The AI agent can extract the required parameters:
 
 ```text
 location = Cairo
@@ -24,7 +26,9 @@ bedrooms = 3
 max_price = 5000000
 ```
 
-The system then retrieves the available properties from PostgreSQL and returns the results to the user.
+and call the property search tool.
+
+The tool communicates with the FastAPI backend, which retrieves the available properties from PostgreSQL.
 
 The agent can also handle conversations such as:
 
@@ -32,7 +36,7 @@ The agent can also handle conversations such as:
 
 > "My name is Mohamed and my phone is 01273086886."
 
-The agent can then create a lead automatically.
+The agent can then create the lead automatically once all required information is available.
 
 ---
 
@@ -60,13 +64,21 @@ Show me properties under 5 million.
 Show me 3 bedroom apartments in Cairo under 5 million.
 ```
 
-The AI uses the `search_properties` tool instead of inventing property information.
+The AI uses the `search_properties` tool and retrieves real data from the backend instead of inventing property information.
+
+Only properties with:
+
+```text
+status = available
+```
+
+are returned by the property search endpoint.
 
 ---
 
-## 📍 Available Locations
+# 📍 Available Locations
 
-The AI can also answer questions such as:
+The agent can also answer questions such as:
 
 ```text
 What areas do you have?
@@ -76,15 +88,15 @@ Which locations are available?
 What areas are your properties in?
 ```
 
-The agent retrieves the properties from the database and extracts the available locations.
+The agent searches the available properties and extracts the locations returned by the database.
 
 It does not invent locations.
 
 ---
 
-## 🏡 Property Details
+# 🏡 Property Details
 
-The agent can retrieve details for a specific property.
+The agent can retrieve detailed information about a specific property.
 
 Example:
 
@@ -92,10 +104,23 @@ Example:
 Tell me more about property 3.
 ```
 
-The system retrieves the property using:
+The agent uses:
 
 ```text
 get_property_details
+```
+
+to retrieve the real property information.
+
+The returned data can include:
+
+```text
+Location
+Bedrooms
+Price
+Area
+Payment Plan
+Status
 ```
 
 ---
@@ -107,22 +132,57 @@ The system allows the AI agent to create a lead when the required information is
 Required information:
 
 * Customer name
-* Phone number
+* Customer phone number
 * Property ID
 
 Example:
 
 ```text
 I am interested in property 4.
+```
 
+Then:
+
+```text
 My name is Mohamed and my phone number is 01273086886.
 ```
 
-The AI can create the lead automatically.
+The agent can then call:
 
-Each lead is connected to the authenticated user.
+```text
+create_lead
+```
 
-This means one sales agent cannot access another sales agent's leads.
+automatically.
+
+### Duplicate Lead Protection
+
+The backend checks whether the same customer has already registered interest in the same property for the same authenticated user.
+
+This prevents duplicate lead records.
+
+---
+
+# 📞 Egyptian Phone Validation
+
+Lead creation includes validation for Egyptian mobile numbers.
+
+The expected format is:
+
+```text
+010xxxxxxxx
+011xxxxxxxx
+012xxxxxxxx
+015xxxxxxxx
+```
+
+Example:
+
+```text
+01273086886
+```
+
+The backend validates the phone number before creating the lead.
 
 ---
 
@@ -145,11 +205,23 @@ tomorrow
 النهارده
 ```
 
-into actual dates.
+into an actual date.
+
+For example:
+
+```text
+tomorrow
+```
+
+can be converted into:
+
+```text
+YYYY-MM-DD
+```
 
 A follow-up can optionally be associated with a property.
 
-For example:
+Example:
 
 ```text
 Schedule a follow-up for Mohamed tomorrow at 4 PM regarding property 5.
@@ -159,7 +231,7 @@ Schedule a follow-up for Mohamed tomorrow at 4 PM regarding property 5.
 
 # 🔄 Update Existing Follow-ups
 
-The AI can also modify an existing follow-up.
+The agent can modify an existing follow-up instead of creating a duplicate.
 
 Example:
 
@@ -173,22 +245,24 @@ The agent uses:
 update_followup
 ```
 
-instead of creating a new follow-up.
+to update the existing record.
 
-This prevents duplicate appointments.
+The update operation modifies:
 
-The update operation can modify:
+```text
+Date
+Time
+```
 
-* Date
-* Time
+while preserving the existing property relationship.
 
-while keeping the existing property relationship.
+This prevents unnecessary duplicate appointments.
 
 ---
 
 # 🔐 JWT Authentication
 
-The application uses JWT authentication.
+The application uses **JWT authentication**.
 
 Users can:
 
@@ -197,30 +271,64 @@ Users can:
 * Access their profile
 * Access their own leads
 * Access their own follow-ups
+* Use protected AI operations
 
-The JWT contains the authenticated user's ID.
+The authentication flow is:
 
-The backend uses the token to identify the current user.
+```text
+Login
+   ↓
+JWT Token
+   ↓
+Authorization Header
+   ↓
+FastAPI
+   ↓
+get_current_user()
+   ↓
+Authenticated User
+```
+
+The frontend sends:
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+```
+
+The backend extracts the user ID from:
+
+```text
+JWT.sub
+```
+
+and loads the corresponding user from PostgreSQL.
 
 ---
 
 # 🔒 Data Ownership
 
-Leads and follow-ups are associated with a user.
+Leads and follow-ups are associated with the authenticated user.
 
 For example:
 
 ```text
-User
-  │
-  ├── Lead 1
-  ├── Lead 2
-  └── Lead 3
+User 1
+ │
+ ├── Lead 1
+ ├── Lead 2
+ └── Follow-up 1
+
+User 2
+ │
+ ├── Lead 3
+ └── Follow-up 2
 ```
 
-Another user will not be able to access these records.
+Users cannot access another user's leads or follow-ups.
 
-This is implemented using queries such as:
+This is enforced at the database query level.
+
+For example:
 
 ```python
 .filter(Lead.user_id == current_user.id)
@@ -232,56 +340,70 @@ and:
 .filter(Followup.user_id == current_user.id)
 ```
 
+The same ownership check is also applied when updating follow-ups.
+
 ---
 
 # 🤖 AI Agent Architecture
 
-The AI agent is implemented using **LangGraph**.
+The AI agent is implemented using **LangGraph** and **Gemini**.
 
-The basic flow is:
+The overall system architecture is:
 
 ```text
-User
- │
- ▼
-Streamlit
- │
- ▼
-FastAPI /chat/
- │
- ▼
-LangGraph
- │
- ▼
-LLM
- │
- ├───────────────┐
- │               │
- ▼               ▼
-Tools          Final Answer
- │
- ├── search_properties
- │
- ├── get_property_details
- │
- ├── create_lead
- │
- ├── schedule_followup
- │
- └── update_followup
- │
- ▼
-FastAPI APIs
- │
- ▼
-PostgreSQL
+                     ┌──────────────────┐
+                     │    Streamlit     │
+                     │    Frontend      │
+                     └────────┬─────────┘
+                              │
+                              ▼
+                     ┌──────────────────┐
+                     │     FastAPI      │
+                     │    /chat/        │
+                     └────────┬─────────┘
+                              │
+                              ▼
+                     ┌──────────────────┐
+                     │    LangGraph     │
+                     │      Agent       │
+                     └────────┬─────────┘
+                              │
+                              ▼
+                     ┌──────────────────┐
+                     │      Gemini      │
+                     │       LLM        │
+                     └────────┬─────────┘
+                              │
+                     Tool Calling
+                              │
+          ┌───────────────────┼────────────────────┐
+          │                   │                    │
+          ▼                   ▼                    ▼
+   search_properties   get_property_details   create_lead
+          │                                        │
+          └───────────────────┬────────────────────┘
+                              │
+                    schedule_followup
+                              │
+                    update_followup
+                              │
+                              ▼
+                     ┌──────────────────┐
+                     │     FastAPI      │
+                     │      APIs       │
+                     └────────┬─────────┘
+                              │
+                              ▼
+                     ┌──────────────────┐
+                     │   PostgreSQL     │
+                     └──────────────────┘
 ```
 
 ---
 
 # 🧠 LangGraph Flow
 
-The graph contains two main nodes:
+The current graph follows the basic agent loop:
 
 ```text
 LLM
@@ -291,11 +413,14 @@ Tools
  │
  ▼
 LLM
+ │
+ ▼
+Final Answer
 ```
 
-If the LLM decides that a tool is required, LangGraph executes the tool.
+If the LLM determines that a tool is required, LangGraph executes it.
 
-For example:
+Example:
 
 ```text
 User:
@@ -308,7 +433,7 @@ The LLM decides to call:
 search_properties
 ```
 
-The tool queries the backend.
+The tool retrieves the data from the backend.
 
 The result is returned to the LLM.
 
@@ -318,9 +443,9 @@ The LLM then generates the final response.
 
 # 🛠️ AI Tools
 
-The current agent contains the following tools.
+The agent currently uses five tools.
 
-## search_properties
+## `search_properties`
 
 Searches available properties.
 
@@ -334,9 +459,9 @@ max_price
 
 ---
 
-## get_property_details
+## `get_property_details`
 
-Returns detailed information about a property.
+Retrieves detailed information about a property.
 
 Parameter:
 
@@ -346,9 +471,9 @@ property_id
 
 ---
 
-## create_lead
+## `create_lead`
 
-Creates a new lead.
+Creates a customer lead.
 
 Parameters:
 
@@ -362,9 +487,9 @@ The authenticated JWT token is injected automatically.
 
 ---
 
-## schedule_followup
+## `schedule_followup`
 
-Schedules a new follow-up.
+Creates a new follow-up.
 
 Parameters:
 
@@ -380,7 +505,7 @@ property_id
 
 ---
 
-## update_followup
+## `update_followup`
 
 Updates an existing follow-up.
 
@@ -393,6 +518,38 @@ time
 ```
 
 The authenticated JWT token is injected automatically.
+
+---
+
+# 🌊 Response Streaming
+
+The `/chat/` endpoint uses **streaming responses**.
+
+Instead of waiting for the complete AI response and returning one large JSON response, FastAPI streams the generated text progressively.
+
+The flow is:
+
+```text
+Gemini
+  ↓
+LangGraph
+  ↓
+FastAPI StreamingResponse
+  ↓
+Streamlit
+  ↓
+Text appears progressively
+```
+
+This provides a more natural conversational experience.
+
+The endpoint returns:
+
+```text
+text/plain
+```
+
+instead of the previous JSON `ChatResponse` format.
 
 ---
 
@@ -416,19 +573,16 @@ followups
 Relationship:
 
 ```text
-users
- │
- ├──────────────┐
- │              │
- ▼              ▼
-leads        followups
-```
-
-Properties are referenced by:
-
-```text
-leads.property_id
-followups.property_id
+                 users
+                /     \
+               /       \
+              ▼         ▼
+           leads     followups
+              │          │
+              └────┬─────┘
+                   │
+                   ▼
+               properties
 ```
 
 ---
@@ -459,6 +613,14 @@ payment_plan
 status
 ```
 
+Property status values:
+
+```text
+available
+reserved
+sold
+```
+
 ---
 
 ## Lead
@@ -470,6 +632,17 @@ phone
 property_id
 status
 user_id
+```
+
+Lead status values include:
+
+```text
+new
+contacted
+interested
+qualified
+converted
+lost
 ```
 
 ---
@@ -487,6 +660,16 @@ status
 user_id
 ```
 
+Follow-up status values:
+
+```text
+scheduled
+completed
+cancelled
+```
+
+`property_id` is optional for follow-ups, allowing general customer follow-ups that are not associated with a specific property.
+
 ---
 
 # 🧰 Technology Stack
@@ -503,7 +686,7 @@ user_id
 
 * JWT
 * OAuth2 Bearer Authentication
-* argon2
+* Argon2
 * python-jose
 
 ## AI
@@ -511,7 +694,7 @@ user_id
 * LangGraph
 * LangChain
 * Google Gemini
-* Tool Calling
+* LLM Tool Calling
 * Structured Tools
 * Pydantic
 
@@ -523,13 +706,14 @@ user_id
 
 * Docker
 * Docker Compose
+* Docker Hub
 
 ---
 
 # 📁 Project Structure
 
 ```text
-langgraph-agent-project/
+Real-Estate-AI-Sales-Agent/
 │
 ├── api/
 │   ├── database/
@@ -554,39 +738,320 @@ langgraph-agent-project/
 ├── docker-compose.yml
 ├── Dockerfile
 ├── requirements.txt
-├── .env
+├── .env.example
+├── .dockerignore
+├── .gitignore
 └── README.md
 ```
 
 ---
 
-# ⚙️ Installation
+# 🐳 Docker Architecture
+
+The project uses a single application image for both the backend and frontend.
+
+Docker Compose runs three services:
+
+```text
+┌─────────────────────────┐
+│       PostgreSQL        │
+│      postgres:16        │
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│        Backend          │
+│        FastAPI          │
+│        Port 8000        │
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│        Frontend         │
+│        Streamlit        │
+│        Port 8501        │
+└─────────────────────────┘
+```
+
+The same Docker image:
+
+```text
+mohamedfoly12/real-estate-ai-sales-agent:latest
+```
+
+is used by both:
+
+```text
+backend
+frontend
+```
+
+The containers run different commands:
+
+```text
+Backend
+→ uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+```text
+Frontend
+→ streamlit run streamlit_app.py --server.address=0.0.0.0 --server.port=8501
+```
+
+---
+
+# 🐳 Docker Hub
+
+The application image is published to Docker Hub as:
+
+```text
+mohamedfoly12/real-estate-ai-sales-agent:latest
+```
+
+Docker Hub repository:
+
+https://hub.docker.com/r/mohamedfoly12/real-estate-ai-sales-agent
+
+The Docker Compose configuration uses this image directly, so another machine does not need to build the application image locally.
+
+---
+
+# ⚙️ Run with Docker
 
 ## 1. Clone the repository
 
 ```bash
-<<<<<<< HEAD
-git clone github.com/MohamedFolyNabyh/Real-Estate-AI-Sales-Agent.git
-=======
-git clone YOUR_GITHUB_REPOSITORY_URL
->>>>>>> bf21f7e (Dockerize application and update README)
+git clone https://github.com/MohamedFolyNabyh/Real-Estate-AI-Sales-Agent.git
 ```
 
 Move into the project:
 
 ```bash
-<<<<<<< HEAD
 cd Real-Estate-AI-Sales-Agent
-=======
-cd langgraph-agent-project
->>>>>>> bf21f7e (Dockerize application and update README)
 ```
 
 ---
 
-# 🐍 Create Virtual Environment
+## 2. Configure Environment Variables
 
-Using Conda:
+Create a `.env` file based on `.env.example`.
+
+Example for Docker:
+
+```env
+DATABASE_URL=postgresql+psycopg://real_estate_user:real_estate_password@postgres:5432/real_estate
+
+SECRET_KEY=your-secret-key
+
+ALGORITHM=HS256
+
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+
+GOOGLE_API_KEY=your-google-api-key
+```
+
+### Important
+
+Inside Docker, PostgreSQL is accessed using:
+
+```text
+postgres:5432
+```
+
+not:
+
+```text
+localhost:5432
+```
+
+because `postgres` is the Docker Compose service name.
+
+Do not upload `.env` to GitHub.
+
+---
+
+## 3. Start the Application
+
+Run:
+
+```bash
+docker compose up -d
+```
+
+Check the containers:
+
+```bash
+docker compose ps
+```
+
+Expected services:
+
+```text
+real_estate_postgres
+real_estate_backend
+real_estate_frontend
+```
+
+---
+
+## 4. Run Database Migrations
+
+Run Alembic inside the backend container:
+
+```bash
+docker compose exec backend alembic upgrade head
+```
+
+Check the current migration:
+
+```bash
+docker compose exec backend alembic current
+```
+
+Check available heads:
+
+```bash
+docker compose exec backend alembic heads
+```
+
+---
+
+# 🌐 Application URLs
+
+After the containers start:
+
+### FastAPI
+
+```text
+http://localhost:8000
+```
+
+### Swagger
+
+```text
+http://localhost:8000/docs
+```
+
+### OpenAPI
+
+```text
+http://localhost:8000/openapi.json
+```
+
+### Streamlit
+
+```text
+http://localhost:8501
+```
+
+### Important Docker Note
+
+Uvicorn displays:
+
+```text
+http://0.0.0.0:8000
+```
+
+inside the container.
+
+`0.0.0.0` is the address the server listens on; it is not the browser address.
+
+Use:
+
+```text
+http://localhost:8000/docs
+```
+
+or:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+---
+
+# 🔗 Docker Networking
+
+The frontend container communicates with the backend using:
+
+```text
+http://backend:8000
+```
+
+This is configured in Docker Compose:
+
+```yaml
+environment:
+  API_URL: http://backend:8000
+```
+
+The browser accesses Streamlit through:
+
+```text
+http://localhost:8501
+```
+
+while containers communicate using their Docker service names.
+
+---
+
+# 🧪 Run from Docker Hub Without Building
+
+The Docker Compose configuration uses:
+
+```text
+mohamedfoly12/real-estate-ai-sales-agent:latest
+```
+
+To test the published image on a clean machine:
+
+```bash
+docker compose up -d
+```
+
+Docker will pull the image from Docker Hub when it is not already available locally.
+
+To simulate a clean local environment:
+
+```bash
+docker compose down
+```
+
+Then remove the local image:
+
+```bash
+docker rmi mohamedfoly12/real-estate-ai-sales-agent:latest
+```
+
+Then start again:
+
+```bash
+docker compose up -d
+```
+
+Docker will download the application image from Docker Hub.
+
+The PostgreSQL volume is preserved by:
+
+```text
+postgres_data
+```
+
+Do not use:
+
+```bash
+docker compose down -v
+```
+
+when you want to keep the database data.
+
+---
+
+# 🐍 Run Locally Without Docker
+
+The application can also be run using a local Python environment.
+
+Create a Conda environment:
 
 ```bash
 conda create -n agent python=3.11
@@ -604,85 +1069,44 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
----
-
-# 🔑 Environment Variables
-
-Create a `.env` file.
+For local PostgreSQL, the database URL should point to `localhost` instead of the Docker service name.
 
 Example:
 
 ```env
-DATABASE_URL=postgresql://real_estate_user:password@localhost:5432/real_estate
-
-SECRET_KEY=your-secret-key
-
-ALGORITHM=HS256
-
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-
-GOOGLE_API_KEY=your-google-api-key
-```
-
-Do not upload `.env` to GitHub.
-
-Add it to `.gitignore`:
-
-```text
-.env
-__pycache__/
-*.pyc
-.venv/
+DATABASE_URL=postgresql+psycopg://real_estate_user:real_estate_password@localhost:5432/real_estate
 ```
 
 ---
 
 # 🐘 PostgreSQL
 
-The project can run PostgreSQL using Docker.
-
-Start the services:
+PostgreSQL can be started through Docker Compose:
 
 ```bash
-docker compose up -d
+docker compose up -d postgres
 ```
 
-Check running containers:
+Check the database container:
 
 ```bash
-docker ps
+docker compose ps postgres
 ```
 
----
+The database is stored in the Docker volume:
 
-# 🗃️ Database Migrations
-
-Run:
-
-```bash
-alembic upgrade head
-```
-
-Check the current migration:
-
-```bash
-alembic current
-```
-
-Check available heads:
-
-```bash
-alembic heads
+```text
+postgres_data
 ```
 
 ---
 
-# ▶️ Run FastAPI
+# ▶️ Run FastAPI Locally
 
-Start the backend:
+Start the backend with:
 
 ```bash
-uvicorn main:app --reload
+uvicorn api.main:app --reload
 ```
 
 The API will be available at:
@@ -691,7 +1115,7 @@ The API will be available at:
 http://127.0.0.1:8000
 ```
 
-Swagger documentation:
+Swagger:
 
 ```text
 http://127.0.0.1:8000/docs
@@ -699,7 +1123,7 @@ http://127.0.0.1:8000/docs
 
 ---
 
-# 🖥️ Run Streamlit
+# 🖥️ Run Streamlit Locally
 
 In another terminal:
 
@@ -707,13 +1131,17 @@ In another terminal:
 streamlit run streamlit_app.py
 ```
 
-The frontend will be available through the Streamlit URL shown in the terminal.
+For local execution, the frontend uses:
+
+```text
+http://127.0.0.1:8000
+```
+
+as the FastAPI backend URL.
 
 ---
 
 # 🔑 Authentication Flow
-
-The authentication flow is:
 
 ```text
 Register
@@ -722,26 +1150,16 @@ Login
    ↓
 JWT Token
    ↓
-Authorization Header
+Authorization: Bearer <token>
    ↓
 FastAPI
    ↓
 get_current_user()
+   ↓
+Database User
 ```
 
-The frontend sends:
-
-```http
-Authorization: Bearer <JWT_TOKEN>
-```
-
-The backend extracts the user ID from:
-
-```text
-JWT.sub
-```
-
-and loads the corresponding user from PostgreSQL.
+Protected operations require the JWT token.
 
 ---
 
@@ -757,24 +1175,41 @@ User:
 The agent calls:
 
 ```text
-search_properties()
+search_properties
 ```
 
 ---
 
-## Search by filters
+## Search with Filters
 
 ```text
 User:
 عايز شقة 3 غرف في القاهرة بسعر لحد 5 مليون
 ```
 
-The agent uses:
+The agent extracts:
 
 ```text
 location = Cairo
 bedrooms = 3
 max_price = 5000000
+```
+
+and searches the backend.
+
+---
+
+## Property Details
+
+```text
+User:
+عايز تفاصيل الشقة رقم 3
+```
+
+The agent calls:
+
+```text
+get_property_details
 ```
 
 ---
@@ -793,7 +1228,13 @@ User:
 اسمي محمد فولي ورقمي 01273086886
 ```
 
-The agent can create the lead.
+The agent can call:
+
+```text
+create_lead
+```
+
+when all required information is available.
 
 ---
 
@@ -804,7 +1245,11 @@ User:
 كلمني بكرة الساعة 4
 ```
 
-The agent schedules the follow-up.
+The agent converts the relative date and calls:
+
+```text
+schedule_followup
+```
 
 ---
 
@@ -822,6 +1267,30 @@ update_followup
 ```
 
 instead of creating another follow-up.
+
+---
+
+# 🔄 Conversation Memory
+
+The LangGraph agent maintains conversation history using a thread associated with the authenticated user.
+
+The current thread ID follows the pattern:
+
+```text
+user_<user_id>
+```
+
+This allows the agent to understand references from previous messages such as:
+
+```text
+it
+this property
+the apartment
+المتابعة
+العقار ده
+```
+
+within the conversation.
 
 ---
 
@@ -848,6 +1317,14 @@ Example:
 
 ```text
 GET /properties/?location=Cairo
+```
+
+Optional filters include:
+
+```text
+location
+bedrooms
+max_price
 ```
 
 ---
@@ -887,28 +1364,11 @@ Example request:
 }
 ```
 
----
-
-# 🧪 Testing
-
-The project can be tested through:
-
-### Swagger
+The response is streamed progressively as:
 
 ```text
-http://127.0.0.1:8000/docs
+text/plain
 ```
-
-### Streamlit
-
-Use the Streamlit frontend to test:
-
-* Login
-* Property search
-* Lead creation
-* Follow-up creation
-* Follow-up updates
-* AI conversations
 
 ---
 
@@ -924,9 +1384,91 @@ Protected resources include:
 /chat/
 ```
 
-Users can only access their own leads and follow-ups.
+Users can only access their own:
 
-Property search is public because property availability is not user-specific.
+```text
+Leads
+Follow-ups
+```
+
+The backend validates the authenticated user before performing protected operations.
+
+Property search remains public because property availability is not user-specific.
+
+---
+
+# 🧪 Testing
+
+The application can be tested through:
+
+### Swagger
+
+```text
+http://localhost:8000/docs
+```
+
+### Streamlit
+
+```text
+http://localhost:8501
+```
+
+The main flows to test are:
+
+```text
+Register
+↓
+Login
+↓
+Property Search
+↓
+Property Details
+↓
+Lead Creation
+↓
+Phone Validation
+↓
+Follow-up Scheduling
+↓
+Follow-up Update
+↓
+Streaming AI Response
+```
+
+---
+
+# 📦 Requirements
+
+Main dependencies include:
+
+```text
+fastapi
+uvicorn
+SQLAlchemy
+psycopg
+alembic
+
+langchain_core
+langchain_google_genai
+langgraph
+
+pydantic
+email-validator
+python-multipart
+python-dotenv
+
+python-jose
+argon2-cffi
+requests
+
+streamlit
+```
+
+The exact pinned versions are available in:
+
+```text
+requirements.txt
+```
 
 ---
 
@@ -935,19 +1477,23 @@ Property search is public because property availability is not user-specific.
 This project demonstrates practical implementation of:
 
 * REST APIs
-* Authentication
-* JWT
+* JWT Authentication
+* OAuth2 Bearer Authentication
 * PostgreSQL
 * SQLAlchemy
-* Database migrations
+* Alembic migrations
+* User data ownership
+* Pydantic validation
 * LangGraph
 * LLM Tool Calling
 * Structured Tools
-* Pydantic validation
 * Conversational AI
 * AI-powered CRM operations
+* Response Streaming
 * Streamlit
 * Docker
+* Docker Compose
+* Docker Hub
 
 ---
 
@@ -966,7 +1512,7 @@ Possible future improvements include:
 * Email integration
 * Calendar integration
 * Human handoff to sales agents
-* Evaluation of the AI agent
+* AI agent evaluation
 * RAG over property/project documents
 
 ---
@@ -980,16 +1526,24 @@ Current implementation includes:
 * ✅ SQLAlchemy models
 * ✅ Alembic migrations
 * ✅ JWT authentication
+* ✅ OAuth2 Bearer authentication
 * ✅ User ownership
 * ✅ Property search
+* ✅ Property details
 * ✅ Lead management
-* ✅ Follow-up management
+* ✅ Egyptian phone validation
+* ✅ Duplicate lead protection
+* ✅ Follow-up scheduling
 * ✅ Follow-up updates
 * ✅ LangGraph agent
-* ✅ Tool calling
 * ✅ Gemini integration
+* ✅ Tool calling
+* ✅ Conversation history
+* ✅ Streaming AI responses
 * ✅ Streamlit frontend
 * ✅ Docker support
+* ✅ Docker Compose
+* ✅ Docker Hub image
 
 ---
 
@@ -1001,9 +1555,11 @@ AI / ML Engineer
 
 GitHub:
 
-```text
 https://github.com/MohamedFolyNabyh
-```
+
+Docker Hub:
+
+https://hub.docker.com/u/mohamedfoly12
 
 ---
 
